@@ -94,8 +94,8 @@ public class ChestLootLoader
     {
       try
       {
-        String sanitizedKey = key.replaceAll("[^a-zA-Z0-9\\._]+", "_");
-        
+        String sanitizedKey = key.replaceAll( "[^a-zA-Z0-9\\._]+", "_" );
+
         File file = new File( generationDir, sanitizedKey + ".xml" );
         if( file.exists() )
           file.delete();
@@ -104,7 +104,7 @@ public class ChestLootLoader
         lootCategory.loading_mode = LootLoadingMode.OVERRIDE;
         for( ChestLootItem lootItem : lootCategory.loot )
         {
-          if( lootItem.nbt.hasNoTags() )
+          if( lootItem.nbt == null || ( lootItem.nbt != null && lootItem.nbt.hasNoTags() ) )
             lootItem.nbt = null;
         }
 

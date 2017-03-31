@@ -18,6 +18,7 @@ public class ChestLootItem
     lootItem.damage = weightedRandomChestContent.theItemId.getItemDamage();
     if( weightedRandomChestContent.theItemId.hasTagCompound() )
       lootItem.nbt = weightedRandomChestContent.theItemId.getTagCompound();
+
     lootItem.weight = weightedRandomChestContent.itemWeight;
     lootItem.count_min = weightedRandomChestContent.theMinimumChanceToGenerateItem;
     lootItem.count_max = weightedRandomChestContent.theMaximumChanceToGenerateItem;
@@ -26,7 +27,7 @@ public class ChestLootItem
 
   public String item;
   public int damage = 0;
-  public NBTTagCompound nbt = new NBTTagCompound();
+  public NBTTagCompound nbt = null;
   public int weight;
   public int count_min = -1;
   public int count_max = -1;
@@ -53,7 +54,8 @@ public class ChestLootItem
   public ItemStack toItemStack()
   {
     ItemStack itemStack = new ItemStack( GameData.getItemRegistry().getObject( item ), 1, damage );
-    itemStack.setTagCompound( nbt );
+    if( nbt != null )
+      itemStack.setTagCompound( nbt );
     return itemStack;
   }
 
