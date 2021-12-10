@@ -20,7 +20,7 @@ import net.minecraftforge.common.ChestGenHooks;
 /**
  * @author dmillerw
  */
-@Mod( modid = "TML", name = "TooMuchLoot", version = "%MOD_VERSION%", acceptableRemoteVersions = "*" )
+@Mod( modid = "TML", name = "TooMuchLoot", version = "GRADLETOKEN_VERSION", acceptableRemoteVersions = "*" )
 public class TooMuchLoot
 {
 
