@@ -145,11 +145,15 @@ public class ChestLootLoader {
                     }
                 } else if (lootCategory.loading_mode == LootLoadingMode.ADD) {
                     for (ChestLootItem lootItem : lootCategory.loot) {
-                        toAdd.put(lootCategory.category, lootItem.toChestContent());
+                        WeightedRandomChestContent content = lootItem.toChestContent();
+                        if (isUnknownItem(lootItem, content.theItemId)) continue;
+                        toAdd.put(lootCategory.category, content);
                     }
                 } else if (lootCategory.loading_mode == LootLoadingMode.REMOVE) {
                     for (ChestLootItem lootItem : lootCategory.loot) {
-                        toRemove.put(lootCategory.category, lootItem.toItemStack());
+                        ItemStack stack = lootItem.toItemStack();
+                        if (isUnknownItem(lootItem, stack)) continue;
+                        toRemove.put(lootCategory.category, stack);
                     }
                 }
             } catch (Exception ex) {
@@ -178,5 +182,13 @@ public class ChestLootLoader {
         if (Loader.isModLoaded("materiallib")) {
             MaterialLibStacks.logPass();
         }
+    }
+
+    /// Whether the entry names an item no registry holds. Such an entry yields a stack whose item is null, not a
+    /// null stack.
+    private static boolean isUnknownItem(ChestLootItem lootItem, ItemStack stack) {
+        if (stack != null && stack.getItem() != null) return false;
+        LogHelper.warn(String.format("Skipping unknown item [%s]", lootItem.item), false);
+        return true;
     }
 }
