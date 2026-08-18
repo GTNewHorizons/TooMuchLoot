@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
+import cpw.mods.fml.common.Loader;
 import dmillerw.tml.TooMuchLoot;
 import dmillerw.tml.data.LootGroupXML;
 import dmillerw.tml.data.LootLoadingMode;
@@ -172,6 +173,10 @@ public class ChestLootLoader {
         for (Map.Entry<String, ItemStack> entry : toRemove.entries()) {
             LogHelper.logRemoval(entry.getKey(), entry.getValue().getDisplayName());
             ChestGenHooks.getInfo(entry.getKey()).removeItem(entry.getValue());
+        }
+
+        if (Loader.isModLoaded("materiallib")) {
+            MaterialLibStacks.logPass();
         }
     }
 }
