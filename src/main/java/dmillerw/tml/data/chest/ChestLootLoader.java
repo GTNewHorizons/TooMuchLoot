@@ -184,8 +184,7 @@ public class ChestLootLoader {
         }
     }
 
-    /// Whether the entry names an item no registry holds. Such an entry yields a stack whose item is null, not a
-    /// null stack.
+    /// Whether the entry names an item no registry holds, warning when it does.
     private static boolean isUnknownItem(ChestLootItem lootItem, ItemStack stack) {
         if (stack != null && stack.getItem() != null) return false;
         LogHelper.warn(String.format("Skipping unknown item [%s]", lootItem.item), false);

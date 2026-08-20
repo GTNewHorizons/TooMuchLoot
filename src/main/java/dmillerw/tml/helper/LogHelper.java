@@ -39,6 +39,6 @@ public class LogHelper {
     }
 
     public static void logMaterialLibPass(int resolved, int invalid) {
-        FMLLog.info("TooMuchLoot: resolved %d MaterialLib entries (%d invalid)", resolved, invalid);
+        FMLLog.info("[TooMuchLoot]: Resolved %d MaterialLib entries (%d invalid)", resolved, invalid);
     }
 }

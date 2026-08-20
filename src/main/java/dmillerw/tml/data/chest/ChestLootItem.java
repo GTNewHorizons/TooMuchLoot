@@ -10,8 +10,7 @@ import cpw.mods.fml.common.registry.GameData;
 
 public class ChestLootItem {
 
-    /// Marks an [#item] as a MaterialLib material and shape pair. Declared here, not on [MaterialLibStacks], so the
-    /// gate in [#toItemStack] names no MaterialLib-holding class ahead of the mod check.
+    /// Marks an [#item] as a MaterialLib material and shape pair.
     private static final String MATERIALLIB_PREFIX = "ml:";
 
     public static ChestLootItem fromChestContent(WeightedRandomChestContent weightedRandomChestContent) {
@@ -48,8 +47,7 @@ public class ChestLootItem {
     }
 
     /// The stack this entry names. A `ml:<Material>:<shape>` item takes the metadata MaterialLib assigned it this
-    /// session, discarding [#damage]; one that resolves to nothing falls through to the unknown-item stack a bad
-    /// registry name yields.
+    /// session and ignores [#damage]. An id MaterialLib does not resolve falls back to the registry lookup.
     public ItemStack toItemStack() {
         if (item != null && item.startsWith(MATERIALLIB_PREFIX) && Loader.isModLoaded("materiallib")) {
             ItemStack resolved = MaterialLibStacks.resolve(item);

@@ -7,12 +7,12 @@ import com.ruling_0.materiallib.api.StackResolver;
 
 import dmillerw.tml.helper.LogHelper;
 
-/// Resolves the `ml:<Material>:<shape>` item ids MaterialLib-aware loot files carry. Such an entry names its item by
+/// Resolves the `ml:<Material>:<shape>` item ids MaterialLib-aware loot files carry. Such an id names its item by
 /// material and shape instead of by registry name and metadata, so it survives sessions that renumber MaterialLib's
 /// metadata.
 ///
-/// This is the only class holding MaterialLib types, so the rest of TooMuchLoot loads without MaterialLib installed.
-/// Every caller checks `Loader.isModLoaded("materiallib")` before naming it.
+/// The only class in TooMuchLoot holding MaterialLib types. Callers check `Loader.isModLoaded("materiallib")` before
+/// naming it, so TooMuchLoot loads without MaterialLib installed.
 public final class MaterialLibStacks {
 
     private static int resolved;
@@ -20,8 +20,7 @@ public final class MaterialLibStacks {
 
     private MaterialLibStacks() {}
 
-    /// The stack `id` names, carrying the metadata MaterialLib assigned the material this session, or null when the
-    /// id is malformed or names nothing MaterialLib registers.
+    /// The stack `id` names, or null when the id is malformed or names nothing MaterialLib registers.
     public static ItemStack resolve(String id) {
         String[] parts = id.split(":");
         if (parts.length != 3 || parts[1].isEmpty() || parts[2].isEmpty()) {
@@ -42,7 +41,7 @@ public final class MaterialLibStacks {
         return stack;
     }
 
-    /// Reports the tally of the loot load pass that just finished and starts a fresh one.
+    /// Logs the tally of the loot load pass that just finished and starts a fresh one.
     public static void logPass() {
         if (resolved + invalid > 0) {
             LogHelper.logMaterialLibPass(resolved, invalid);
