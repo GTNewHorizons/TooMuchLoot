@@ -7,11 +7,13 @@ import java.io.FilenameFilter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.WeightedRandomChestContent;
 import net.minecraftforge.common.ChestGenHooks;
@@ -20,6 +22,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 
 import dmillerw.tml.TooMuchLoot;
 import dmillerw.tml.data.LootGroupXML;
@@ -114,6 +117,51 @@ public class ChestLootLoader {
         }
     }
 
+    /**
+     * Identifies a loot entry by item and metadata only, excluding stack size and weight
+     */
+    private static String lootKey(WeightedRandomChestContent content) {
+        ItemStack stack = content.theItemId;
+        Object name = Item.itemRegistry.getNameForObject(stack.getItem());
+        return (name != null ? name.toString() : stack.getUnlocalizedName()) + "@" + stack.getItemDamage();
+    }
+
+    /** An entry with no item cannot be named or compared. Malformed entries are ignored rather than reported. */
+    private static boolean isNamable(WeightedRandomChestContent content) {
+        return content != null && content.theItemId != null && content.theItemId.getItem() != null;
+    }
+
+    /**
+     * Names the items that an OVERRIDE is about to drop.
+     */
+    private static void reportOverrideDiscards(Map<String, ChestGenHooks> tempMap) throws Exception {
+        Map<String, ChestGenHooks> live = (Map<String, ChestGenHooks>) TooMuchLoot.chestInfo.get(ChestGenHooks.class);
+
+        for (Map.Entry<String, ChestGenHooks> entry : tempMap.entrySet()) {
+            ChestGenHooks registered = live.get(entry.getKey());
+            if (registered == null) continue; // category is new; nothing to discard
+
+            Set<String> kept = Sets.newHashSet();
+            for (WeightedRandomChestContent content : (List<WeightedRandomChestContent>) TooMuchLoot.contents
+                    .get(entry.getValue())) {
+                if (isNamable(content)) kept.add(lootKey(content));
+            }
+
+            List<WeightedRandomChestContent> before = (List<WeightedRandomChestContent>) TooMuchLoot.contents
+                    .get(registered);
+            Set<String> lost = Sets.newLinkedHashSet(); // insertion order keeps the log reproducible
+            for (WeightedRandomChestContent content : before) {
+                if (!isNamable(content)) continue;
+                String key = lootKey(content);
+                if (!kept.contains(key)) lost.add(key);
+            }
+
+            if (!lost.isEmpty()) {
+                LogHelper.logOverrideDiscards(entry.getKey(), lost);
+            }
+        }
+    }
+
     public static void loadFiles(File scanDir) {
         SetMultimap<String, WeightedRandomChestContent> toAdd = HashMultimap.create();
         SetMultimap<String, ItemStack> toRemove = HashMultimap.create();
@@ -154,6 +202,12 @@ public class ChestLootLoader {
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
+        }
+
+        try {
+            reportOverrideDiscards(tempMap);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
 
         try {
