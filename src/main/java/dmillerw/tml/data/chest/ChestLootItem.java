@@ -5,9 +5,13 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.WeightedRandomChestContent;
 
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.registry.GameData;
 
 public class ChestLootItem {
+
+    /// Marks an [#item] as a MaterialLib material and shape pair.
+    private static final String MATERIALLIB_PREFIX = "ml:";
 
     public static ChestLootItem fromChestContent(WeightedRandomChestContent weightedRandomChestContent) {
         ChestLootItem lootItem = new ChestLootItem();
@@ -42,7 +46,17 @@ public class ChestLootItem {
         return this;
     }
 
+    /// The stack this entry names. A `ml:<Material>:<shape>` item takes the metadata MaterialLib assigned it this
+    /// session and ignores [#damage]. An id MaterialLib does not resolve falls back to the registry lookup.
     public ItemStack toItemStack() {
+        if (item != null && item.startsWith(MATERIALLIB_PREFIX) && Loader.isModLoaded("materiallib")) {
+            ItemStack resolved = MaterialLibStacks.resolve(item);
+            if (resolved != null) {
+                if (nbt != null) resolved.setTagCompound(nbt);
+                return resolved;
+            }
+        }
+
         ItemStack itemStack = new ItemStack(GameData.getItemRegistry().getObject(item), 1, damage);
         if (nbt != null) itemStack.setTagCompound(nbt);
         return itemStack;

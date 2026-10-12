@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
+import cpw.mods.fml.common.Loader;
 import dmillerw.tml.TooMuchLoot;
 import dmillerw.tml.data.LootGroupXML;
 import dmillerw.tml.data.LootLoadingMode;
@@ -144,11 +145,15 @@ public class ChestLootLoader {
                     }
                 } else if (lootCategory.loading_mode == LootLoadingMode.ADD) {
                     for (ChestLootItem lootItem : lootCategory.loot) {
-                        toAdd.put(lootCategory.category, lootItem.toChestContent());
+                        WeightedRandomChestContent content = lootItem.toChestContent();
+                        if (isUnknownItem(lootItem, content.theItemId)) continue;
+                        toAdd.put(lootCategory.category, content);
                     }
                 } else if (lootCategory.loading_mode == LootLoadingMode.REMOVE) {
                     for (ChestLootItem lootItem : lootCategory.loot) {
-                        toRemove.put(lootCategory.category, lootItem.toItemStack());
+                        ItemStack stack = lootItem.toItemStack();
+                        if (isUnknownItem(lootItem, stack)) continue;
+                        toRemove.put(lootCategory.category, stack);
                     }
                 }
             } catch (Exception ex) {
@@ -173,5 +178,16 @@ public class ChestLootLoader {
             LogHelper.logRemoval(entry.getKey(), entry.getValue().getDisplayName());
             ChestGenHooks.getInfo(entry.getKey()).removeItem(entry.getValue());
         }
+
+        if (Loader.isModLoaded("materiallib")) {
+            MaterialLibStacks.logPass();
+        }
+    }
+
+    /// Whether the entry names an item no registry holds, warning when it does.
+    private static boolean isUnknownItem(ChestLootItem lootItem, ItemStack stack) {
+        if (stack != null && stack.getItem() != null) return false;
+        LogHelper.warn(String.format("Skipping unknown item [%s]", lootItem.item), false);
+        return true;
     }
 }
