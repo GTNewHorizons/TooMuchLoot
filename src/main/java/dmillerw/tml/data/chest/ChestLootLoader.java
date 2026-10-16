@@ -82,7 +82,7 @@ public class ChestLootLoader {
         }
 
         if (categories == null || categories.length == 0) {
-            categories = TooMuchLoot.chestGenCategories;
+            categories = TooMuchLoot.chestGenCategories.toArray(new String[0]);
         }
 
         for (String key : categories) {
@@ -130,6 +130,7 @@ public class ChestLootLoader {
                 tXMLObject = (LootGroupXML) jaxUnmarsh.unmarshal(file);
 
                 ChestLootCategory lootCategory = XMLDataBridge.parseToChestLootCat(tXMLObject);
+                TooMuchLoot.chestGenCategories.add(lootCategory.category);
 
                 for (ChestLootItem chestLootItem : lootCategory.loot) {
                     chestLootItem.checkCountValues();
@@ -138,6 +139,7 @@ public class ChestLootLoader {
                 if (lootCategory.loading_mode == LootLoadingMode.OVERRIDE) {
                     if (!tempMap.containsKey(lootCategory.category)) {
                         LogHelper.logOverride(lootCategory.category);
+                        ChestGenHooks.getInfo(lootCategory.category); // Makes sure it exists
                         tempMap.put(lootCategory.category, lootCategory.toChestGenHooks());
                     } else {
                         LogHelper.logOverrideError(lootCategory.category, file.getName());

@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Set;
 
 import net.minecraftforge.common.ChestGenHooks;
@@ -30,7 +31,7 @@ public class TooMuchLoot {
 
     public static HashMap<String, ChestGenHooks> lootTableCache;
 
-    public static String[] chestGenCategories = new String[0];
+    public static Set<String> chestGenCategories = new HashSet<String>();
 
     public static File configFolder;
     public static File lootFolder;
@@ -80,7 +81,7 @@ public class TooMuchLoot {
 
             // Load chest-gen keys array
             Set<String> keys = lootTableCache.keySet();
-            chestGenCategories = keys.toArray(new String[keys.size()]);
+            chestGenCategories = new HashSet<String>(keys);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -92,7 +93,7 @@ public class TooMuchLoot {
         // If loot folder is empty, and doesn't have generated folder, generate
         // vanilla example files
         if (lootFolder.listFiles().length <= 0) {
-            ChestLootLoader.generateFiles(generatedFolder, chestGenCategories);
+            ChestLootLoader.generateFiles(generatedFolder, chestGenCategories.toArray(new String[0]));
             try {
                 File hiddenFlag = new File(generatedFolder, ".firstrun.hidden");
                 hiddenFlag.setReadOnly();

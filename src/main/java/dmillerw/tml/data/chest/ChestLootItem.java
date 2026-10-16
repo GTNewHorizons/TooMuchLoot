@@ -22,6 +22,17 @@ public class ChestLootItem {
         return lootItem;
     }
 
+    public static ChestLootItem fromItemStack(ItemStack item) {
+        ChestLootItem lootItem = new ChestLootItem();
+        lootItem.item = GameData.getItemRegistry().getNameForObject(item.getItem());
+        lootItem.damage = item.getItemDamage();
+        if (item.hasTagCompound()) lootItem.nbt = item.getTagCompound();
+        lootItem.weight = 1;
+        lootItem.count_min = 0;
+        lootItem.count_max = item.stackSize;
+        return lootItem;
+    }
+
     public String item;
     public int damage = 0;
     public NBTTagCompound nbt = null;
