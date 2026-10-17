@@ -11,6 +11,7 @@ import net.minecraftforge.common.ChestGenHooks;
 
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import dmillerw.tml.command.CommandChestLoot;
 import dmillerw.tml.data.chest.ChestLootLoader;
@@ -69,10 +70,8 @@ public class TooMuchLoot {
     }
 
     @Mod.EventHandler
-    public void serverStarting(FMLServerStartingEvent event) {
+    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
         if (failed) return;
-
-        event.registerServerCommand(new CommandChestLoot());
 
         try {
             lootTableCache = ChestLootLoader
@@ -100,7 +99,14 @@ public class TooMuchLoot {
             } catch (IOException ex) {}
         }
 
-        // Load loot
+        // Apply custom loot before world loading generates chests in the spawn area.
         ChestLootLoader.loadFiles(lootFolder);
+    }
+
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        if (failed) return;
+
+        event.registerServerCommand(new CommandChestLoot());
     }
 }
