@@ -5,12 +5,14 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Set;
 
 import net.minecraftforge.common.ChestGenHooks;
 
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import dmillerw.tml.command.CommandChestLoot;
 import dmillerw.tml.data.chest.ChestLootLoader;
@@ -30,7 +32,7 @@ public class TooMuchLoot {
 
     public static HashMap<String, ChestGenHooks> lootTableCache;
 
-    public static String[] chestGenCategories = new String[0];
+    public static Set<String> chestGenCategories = new HashSet<String>();
 
     public static File configFolder;
     public static File lootFolder;
@@ -69,10 +71,8 @@ public class TooMuchLoot {
     }
 
     @Mod.EventHandler
-    public void serverStarting(FMLServerStartingEvent event) {
+    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
         if (failed) return;
-
-        event.registerServerCommand(new CommandChestLoot());
 
         try {
             lootTableCache = ChestLootLoader
@@ -80,7 +80,7 @@ public class TooMuchLoot {
 
             // Load chest-gen keys array
             Set<String> keys = lootTableCache.keySet();
-            chestGenCategories = keys.toArray(new String[keys.size()]);
+            chestGenCategories = new HashSet<String>(keys);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -92,7 +92,7 @@ public class TooMuchLoot {
         // If loot folder is empty, and doesn't have generated folder, generate
         // vanilla example files
         if (lootFolder.listFiles().length <= 0) {
-            ChestLootLoader.generateFiles(generatedFolder, chestGenCategories);
+            ChestLootLoader.generateFiles(generatedFolder, chestGenCategories.toArray(new String[0]));
             try {
                 File hiddenFlag = new File(generatedFolder, ".firstrun.hidden");
                 hiddenFlag.setReadOnly();
@@ -100,7 +100,14 @@ public class TooMuchLoot {
             } catch (IOException ex) {}
         }
 
-        // Load loot
+        // Apply custom loot before world loading generates chests in the spawn area.
         ChestLootLoader.loadFiles(lootFolder);
+    }
+
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        if (failed) return;
+
+        event.registerServerCommand(new CommandChestLoot());
     }
 }
