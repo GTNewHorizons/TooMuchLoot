@@ -26,7 +26,7 @@ public class ChestLootItem {
         ChestLootItem lootItem = new ChestLootItem();
         lootItem.item = GameData.getItemRegistry().getNameForObject(item.getItem());
         lootItem.damage = item.getItemDamage();
-        if (item.hasTagCompound()) lootItem.nbt = item.getTagCompound();
+        if (item.hasTagCompound()) lootItem.nbt = (NBTTagCompound) item.getTagCompound().copy();
         lootItem.weight = 1;
         lootItem.count_min = 0;
         lootItem.count_max = item.stackSize;

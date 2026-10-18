@@ -70,8 +70,8 @@ public class CommandChestLoot extends CommandBase {
     public void processCommand(ICommandSender commandSender, String[] args) {
         if (args.length < 1) throw new WrongUsageException(getCommandUsage(commandSender));
 
-        EntityPlayerMP entityPlayerMP = getCommandSenderAsPlayer(commandSender);
-        ItemStack item = entityPlayerMP.getCurrentEquippedItem();
+        EntityPlayerMP entityPlayerMP;
+        ItemStack item;
         String tag;
         switch (args[0].toLowerCase()) {
             case "reload":
@@ -82,20 +82,39 @@ public class CommandChestLoot extends CommandBase {
                 ChestLootLoader.generateFiles(TooMuchLoot.generatedFolder, Arrays.copyOfRange(args, 1, args.length));
                 break;
             case "add":
-                if (item == null || args.length == 1) {
+                item = getCommandSenderAsPlayer(commandSender).getCurrentEquippedItem();
+                if (item == null || args.length < 2 || args.length > 5) {
                     throw new WrongUsageException(
                             "/loot add <category> [weight] [min] [max] -- adds current item in hand to loot category");
                 }
                 ChestLootItem clItem = ChestLootItem.fromItemStack(item);
                 tag = args[1];
-                clItem.weight = (args.length > 2) ? Integer.parseInt(args[2]) : 10;
-                clItem.count_min = (args.length > 3) ? Integer.parseInt(args[3]) : 1;
-                clItem.count_max = (args.length > 4) ? Integer.parseInt(args[4]) : 1;
-                ChestGenHooks.getInfo(tag).addItem(clItem.toChestContent());
+                clItem.weight = (args.length > 2) ? parseIntWithMin(commandSender, args[2], 1) : 10;
+                clItem.count_min = (args.length > 3) ? parseIntWithMin(commandSender, args[3], 0) : 1;
+                clItem.count_max = (args.length > 4) ? parseIntBounded(
+                        commandSender,
+                        args[4],
+                        clItem.count_min,
+                        clItem.count_min == 0 ? Integer.MAX_VALUE - 1 : Integer.MAX_VALUE) : clItem.count_min;
+                ChestGenHooks category = ChestGenHooks.getInfo(tag);
+                try {
+                    long totalWeight = clItem.weight;
+                    for (WeightedRandomChestContent content : (List<WeightedRandomChestContent>) TooMuchLoot.contents
+                            .get(category)) {
+                        totalWeight += content.itemWeight;
+                    }
+                    if (totalWeight > Integer.MAX_VALUE) {
+                        throw new CommandException("Total loot category weight must not exceed " + Integer.MAX_VALUE);
+                    }
+                } catch (IllegalAccessException e) {
+                    throw new CommandException("Could not read loot category contents!");
+                }
+                category.addItem(clItem.toChestContent());
                 TooMuchLoot.chestGenCategories.add(tag); // getInfo(tag) adds new tags if they don't exist, so make them
                                                          // visible
                 break;
             case "remove":
+                item = getCommandSenderAsPlayer(commandSender).getCurrentEquippedItem();
                 if (item == null || args.length == 1) {
                     throw new WrongUsageException("/loot remove <category> -- removes item in hand from loot category");
                 }
@@ -106,18 +125,16 @@ public class CommandChestLoot extends CommandBase {
                 ChestLootLoader.restoreCachedLootTable();
                 break;
             case "spawndebugchest":
-                if (args.length == 1)
+                if (args.length < 2 || args.length > 5)
                     throw new WrongUsageException("usage: /loot spawnDebugChest <category> [x] [y] [z]");
-                int x = (int) Math.floor(func_110666_a(commandSender, entityPlayerMP.posX, "~"));
-                int y = (int) Math.floor(func_110665_a(commandSender, entityPlayerMP.posY, "~", 0, 0));
-                int z = (int) Math.floor(func_110666_a(commandSender, entityPlayerMP.posZ, "~"));
+                entityPlayerMP = getCommandSenderAsPlayer(commandSender);
+                int x = (int) Math
+                        .floor(func_110666_a(commandSender, entityPlayerMP.posX, args.length > 2 ? args[2] : "~"));
+                int y = (int) Math.floor(
+                        func_110665_a(commandSender, entityPlayerMP.posY, args.length > 3 ? args[3] : "~", 0, 0));
+                int z = (int) Math
+                        .floor(func_110666_a(commandSender, entityPlayerMP.posZ, args.length > 4 ? args[4] : "~"));
                 tag = args[1];
-
-                if (args.length == 5) {
-                    x = (int) Math.floor(func_110666_a(commandSender, entityPlayerMP.posX, args[2]));
-                    y = (int) Math.floor(func_110665_a(commandSender, entityPlayerMP.posY, args[3], 0, 0));
-                    z = (int) Math.floor(func_110666_a(commandSender, entityPlayerMP.posZ, args[4]));
-                }
 
                 Random random = new Random();
                 WeightedRandomChestContent[] contents = ChestGenHooks.getItems(tag, random);
