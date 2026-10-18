@@ -3,6 +3,7 @@ package dmillerw.tml.command;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import net.minecraft.command.CommandBase;
@@ -13,6 +14,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntityChest;
+import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.WeightedRandomChestContent;
 import net.minecraftforge.common.ChestGenHooks;
 
@@ -75,11 +77,28 @@ public class CommandChestLoot extends CommandBase {
         String tag;
         switch (args[0].toLowerCase()) {
             case "reload":
-                ChestLootLoader.restoreCachedLootTable();
-                ChestLootLoader.loadFiles(TooMuchLoot.lootFolder);
+                if (args.length != 1) throw new WrongUsageException("/loot reload");
+                if (!ChestLootLoader.restoreCachedLootTable()) {
+                    throw new CommandException("Could not restore the original loot tables. Check the server log.");
+                }
+                if (!ChestLootLoader.loadFiles(TooMuchLoot.lootFolder)) {
+                    throw new CommandException(
+                            "Could not load all loot files. Some changes may have been applied; check the server log.");
+                }
+                commandSender.addChatMessage(new ChatComponentText("Reloaded custom loot tables."));
                 break;
             case "generate":
-                ChestLootLoader.generateFiles(TooMuchLoot.generatedFolder, Arrays.copyOfRange(args, 1, args.length));
+                for (int i = 1; i < args.length; i++) {
+                    getCategory(args[i]);
+                }
+                if (!ChestLootLoader
+                        .generateFiles(TooMuchLoot.generatedFolder, Arrays.copyOfRange(args, 1, args.length))) {
+                    throw new CommandException(
+                            "Could not export all loot files. Some files may have been written; check the server log.");
+                }
+                commandSender.addChatMessage(
+                        new ChatComponentText(
+                                "Exported loot tables to " + TooMuchLoot.generatedFolder.getAbsolutePath()));
                 break;
             case "add":
                 item = getCommandSenderAsPlayer(commandSender).getCurrentEquippedItem();
@@ -97,32 +116,42 @@ public class CommandChestLoot extends CommandBase {
                         clItem.count_min,
                         clItem.count_min == 0 ? Integer.MAX_VALUE - 1 : Integer.MAX_VALUE) : clItem.count_min;
                 ChestGenHooks category = ChestGenHooks.getInfo(tag);
-                try {
-                    long totalWeight = clItem.weight;
-                    for (WeightedRandomChestContent content : (List<WeightedRandomChestContent>) TooMuchLoot.contents
-                            .get(category)) {
-                        totalWeight += content.itemWeight;
-                    }
-                    if (totalWeight > Integer.MAX_VALUE) {
-                        throw new CommandException("Total loot category weight must not exceed " + Integer.MAX_VALUE);
-                    }
-                } catch (IllegalAccessException e) {
-                    throw new CommandException("Could not read loot category contents!");
+                long totalWeight = clItem.weight;
+                for (WeightedRandomChestContent content : getContents(category)) {
+                    totalWeight += content.itemWeight;
+                }
+                if (totalWeight > Integer.MAX_VALUE) {
+                    throw new CommandException("Total loot category weight must not exceed " + Integer.MAX_VALUE);
                 }
                 category.addItem(clItem.toChestContent());
                 TooMuchLoot.chestGenCategories.add(tag); // getInfo(tag) adds new tags if they don't exist, so make them
                                                          // visible
+                commandSender.addChatMessage(
+                        new ChatComponentText("Added " + item.getDisplayName() + " to loot category '" + tag + "'."));
                 break;
             case "remove":
                 item = getCommandSenderAsPlayer(commandSender).getCurrentEquippedItem();
-                if (item == null || args.length == 1) {
+                if (item == null || args.length != 2) {
                     throw new WrongUsageException("/loot remove <category> -- removes item in hand from loot category");
                 }
                 tag = args[1];
-                ChestGenHooks.getInfo(tag).removeItem(item);
+                ChestGenHooks removeCategory = getCategory(tag);
+                List<WeightedRandomChestContent> contentsBeforeRemoval = getContents(removeCategory);
+                int previousSize = contentsBeforeRemoval.size();
+                removeCategory.removeItem(item);
+                if (previousSize == contentsBeforeRemoval.size()) {
+                    throw new CommandException("No matching item was found in loot category '%s'.", tag);
+                }
+                commandSender.addChatMessage(
+                        new ChatComponentText(
+                                "Removed " + item.getDisplayName() + " from loot category '" + tag + "'."));
                 break;
             case "reset":
-                ChestLootLoader.restoreCachedLootTable();
+                if (args.length != 1) throw new WrongUsageException("/loot reset");
+                if (!ChestLootLoader.restoreCachedLootTable()) {
+                    throw new CommandException("Could not restore the original loot tables. Check the server log.");
+                }
+                commandSender.addChatMessage(new ChatComponentText("Restored the original loot tables."));
                 break;
             case "spawndebugchest":
                 if (args.length < 2 || args.length > 5)
@@ -135,21 +164,48 @@ public class CommandChestLoot extends CommandBase {
                 int z = (int) Math
                         .floor(func_110666_a(commandSender, entityPlayerMP.posZ, args.length > 4 ? args[4] : "~"));
                 tag = args[1];
+                getCategory(tag);
 
                 Random random = new Random();
                 WeightedRandomChestContent[] contents = ChestGenHooks.getItems(tag, random);
                 int count = ChestGenHooks.getCount(tag, random);
 
-                entityPlayerMP.worldObj.setBlock(x, y, z, Blocks.chest, 0, 2);
+                if (!entityPlayerMP.worldObj.setBlock(x, y, z, Blocks.chest, 0, 2)) {
+                    throw new CommandException("Could not place a loot chest at %s, %s, %s.", x, y, z);
+                }
                 TileEntityChest tileEntity = (TileEntityChest) entityPlayerMP.worldObj.getTileEntity(x, y, z);
                 if (tileEntity != null) {
                     WeightedRandomChestContent.generateChestContents(random, contents, tileEntity, count);
                 } else {
                     throw new CommandException("Could not find chest!");
                 }
+                commandSender.addChatMessage(
+                        new ChatComponentText(
+                                "Created loot chest for '" + tag + "' at " + x + ", " + y + ", " + z + "."));
                 break;
             default:
                 throw new WrongUsageException(getCommandUsage(commandSender));
+        }
+    }
+
+    private static ChestGenHooks getCategory(String tag) {
+        try {
+            ChestGenHooks category = ((Map<String, ChestGenHooks>) TooMuchLoot.chestInfo.get(ChestGenHooks.class))
+                    .get(tag);
+            if (category == null) throw new CommandException("Unknown loot category '%s'.", tag);
+            return category;
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            throw new CommandException("Could not read loot categories. Check the server log.");
+        }
+    }
+
+    private static List<WeightedRandomChestContent> getContents(ChestGenHooks category) {
+        try {
+            return (List<WeightedRandomChestContent>) TooMuchLoot.contents.get(category);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            throw new CommandException("Could not read loot category contents. Check the server log.");
         }
     }
 }

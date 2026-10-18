@@ -63,35 +63,48 @@ public class ChestLootLoader {
                                 old.getMin(),
                                 old.getMax()));
             }
-        } catch (Exception ex) {}
+        } catch (Exception ex) {
+            throw new IllegalStateException("Could not copy loot tables", ex);
+        }
         return newLootTable;
     }
 
-    public static void restoreCachedLootTable() {
+    /** Restores the startup snapshot, returning false and logging details if restoration fails. */
+    public static boolean restoreCachedLootTable() {
         try {
-            TooMuchLoot.chestInfo.set(
-                    ChestGenHooks.class,
-                    ChestLootLoader.copyLootTable(
-                            (Map<String, ChestGenHooks>) TooMuchLoot.chestInfo.get(ChestGenHooks.class)));
-        } catch (Exception ex) {}
+            Map<String, ChestGenHooks> restored = copyLootTable(TooMuchLoot.lootTableCache);
+            Map<String, ChestGenHooks> active = (Map<String, ChestGenHooks>) TooMuchLoot.chestInfo
+                    .get(ChestGenHooks.class);
+            // Forge owns a static final map; restore its contents rather than replacing the field.
+            active.clear();
+            active.putAll(restored);
+            TooMuchLoot.chestGenCategories.clear();
+            TooMuchLoot.chestGenCategories.addAll(restored.keySet());
+            return true;
+        } catch (Exception ex) {
+            LogHelper.warn("Could not restore the original loot tables.", false);
+            ex.printStackTrace();
+            return false;
+        }
     }
 
-    public static void generateFiles(File generationDir, String... categories) {
-        if (!generationDir.exists()) {
-            generationDir.mkdirs();
+    /** Returns true only when every requested file was written; failures may leave partial output. */
+    public static boolean generateFiles(File generationDir, String... categories) {
+        if (!generationDir.isDirectory() && !generationDir.mkdirs()) {
+            LogHelper.warn("Could not create loot export directory: " + generationDir, false);
+            return false;
         }
 
         if (categories == null || categories.length == 0) {
             categories = TooMuchLoot.chestGenCategories.toArray(new String[0]);
         }
 
+        boolean success = true;
         for (String key : categories) {
             try {
                 String sanitizedKey = key.replaceAll("[^a-zA-Z0-9\\._]+", "_");
 
                 File file = new File(generationDir, sanitizedKey + ".xml");
-                if (file.exists()) file.delete();
-
                 ChestLootCategory lootCategory = ChestLootCategory.fromChestGenHooks(key);
                 lootCategory.loading_mode = LootLoadingMode.OVERRIDE;
                 for (ChestLootItem lootItem : lootCategory.loot) {
@@ -99,27 +112,35 @@ public class ChestLootLoader {
                 }
 
                 LootGroupXML tXMLObject = XMLDataBridge.parseToXMLObject(lootCategory);
-                try {
+                try (FileOutputStream output = new FileOutputStream(file, false)) {
                     JAXBContext tJaxbCtx = JAXBContext.newInstance(LootGroupXML.class);
                     Marshaller jaxMarsh = tJaxbCtx.createMarshaller();
                     jaxMarsh.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-                    jaxMarsh.marshal(tXMLObject, new FileOutputStream(file, false));
-                } catch (Exception e) {
-                    LogHelper.warn(String.format("Error while creating lootfile %s", e.getMessage()), false);
-                    e.printStackTrace();
+                    jaxMarsh.marshal(tXMLObject, output);
                 }
             } catch (Exception ex) {
+                success = false;
+                LogHelper.warn("Could not export loot category: " + key, false);
                 ex.printStackTrace();
             }
         }
+        return success;
     }
 
-    public static void loadFiles(File scanDir) {
+    /** Returns true only when all files were loaded and applied; failures may leave partial changes. */
+    public static boolean loadFiles(File scanDir) {
         SetMultimap<String, WeightedRandomChestContent> toAdd = HashMultimap.create();
         SetMultimap<String, ItemStack> toRemove = HashMultimap.create();
         Map<String, ChestGenHooks> tempMap = Maps.newHashMap();
 
-        for (File file : scanDir.listFiles(FILTER)) {
+        File[] files = scanDir.listFiles(FILTER);
+        if (files == null) {
+            LogHelper.warn("Could not read loot directory: " + scanDir, false);
+            return false;
+        }
+
+        boolean success = true;
+        for (File file : files) {
             LogHelper.logParse(file.getName());
 
             try {
@@ -131,6 +152,7 @@ public class ChestLootLoader {
 
                 ChestLootCategory lootCategory = XMLDataBridge.parseToChestLootCat(tXMLObject);
                 if (lootCategory.category == null) {
+                    success = false;
                     LogHelper.warn("Missing loot category in " + file.getName() + ". Skipping file.", false);
                     continue;
                 }
@@ -146,6 +168,7 @@ public class ChestLootLoader {
                         ChestGenHooks.getInfo(lootCategory.category); // Makes sure it exists
                         tempMap.put(lootCategory.category, lootCategory.toChestGenHooks());
                     } else {
+                        success = false;
                         LogHelper.logOverrideError(lootCategory.category, file.getName());
                     }
                 } else if (lootCategory.loading_mode == LootLoadingMode.ADD) {
@@ -158,6 +181,8 @@ public class ChestLootLoader {
                     }
                 }
             } catch (Exception ex) {
+                success = false;
+                LogHelper.warn("Could not load loot file: " + file.getName(), false);
                 ex.printStackTrace();
             }
         }
@@ -167,17 +192,32 @@ public class ChestLootLoader {
                 ((HashMap<String, ChestGenHooks>) TooMuchLoot.chestInfo.get(ChestGenHooks.class)).putAll(tempMap);
             }
         } catch (Exception ex) {
+            success = false;
+            LogHelper.warn("Could not apply loot overrides.", false);
             ex.printStackTrace();
         }
 
         for (Map.Entry<String, WeightedRandomChestContent> entry : toAdd.entries()) {
-            LogHelper.logAddition(entry.getKey(), entry.getValue().theItemId.getDisplayName());
-            ChestGenHooks.getInfo(entry.getKey()).addItem(entry.getValue());
+            try {
+                LogHelper.logAddition(entry.getKey(), entry.getValue().theItemId.getDisplayName());
+                ChestGenHooks.getInfo(entry.getKey()).addItem(entry.getValue());
+            } catch (Exception ex) {
+                success = false;
+                LogHelper.warn("Could not add loot to category: " + entry.getKey(), false);
+                ex.printStackTrace();
+            }
         }
 
         for (Map.Entry<String, ItemStack> entry : toRemove.entries()) {
-            LogHelper.logRemoval(entry.getKey(), entry.getValue().getDisplayName());
-            ChestGenHooks.getInfo(entry.getKey()).removeItem(entry.getValue());
+            try {
+                LogHelper.logRemoval(entry.getKey(), entry.getValue().getDisplayName());
+                ChestGenHooks.getInfo(entry.getKey()).removeItem(entry.getValue());
+            } catch (Exception ex) {
+                success = false;
+                LogHelper.warn("Could not remove loot from category: " + entry.getKey(), false);
+                ex.printStackTrace();
+            }
         }
+        return success;
     }
 }
