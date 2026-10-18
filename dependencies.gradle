@@ -1,5 +1,5 @@
 // Add your dependencies here
 
 dependencies {
-
+    testImplementation 'junit:junit:4.13.2'
 }

@@ -145,9 +145,10 @@ public class ChestLootLoader {
     }
 
     /**
-     * Names the items that an OVERRIDE is about to drop.
+     * Names registered items absent from both the OVERRIDE and queued ADD entries.
      */
-    private static void reportOverrideDiscards(Map<String, ChestGenHooks> tempMap) throws Exception {
+    private static void reportOverrideDiscards(Map<String, ChestGenHooks> tempMap,
+            SetMultimap<String, WeightedRandomChestContent> toAdd) throws Exception {
         Map<String, ChestGenHooks> live = (Map<String, ChestGenHooks>) TooMuchLoot.chestInfo.get(ChestGenHooks.class);
 
         for (Map.Entry<String, ChestGenHooks> entry : tempMap.entrySet()) {
@@ -157,6 +158,9 @@ public class ChestLootLoader {
             Set<String> kept = Sets.newHashSet();
             for (WeightedRandomChestContent content : (List<WeightedRandomChestContent>) TooMuchLoot.contents
                     .get(entry.getValue())) {
+                if (isNamable(content)) kept.add(lootKey(content));
+            }
+            for (WeightedRandomChestContent content : toAdd.get(entry.getKey())) {
                 if (isNamable(content)) kept.add(lootKey(content));
             }
 
@@ -236,7 +240,7 @@ public class ChestLootLoader {
         }
 
         try {
-            reportOverrideDiscards(tempMap);
+            reportOverrideDiscards(tempMap, toAdd);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
