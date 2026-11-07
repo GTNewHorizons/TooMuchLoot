@@ -30,7 +30,7 @@ public class ChestLootCategory {
                 lootList.add(ChestLootItem.fromChestContent(item));
             }
         } catch (Exception ex) {
-            ex.printStackTrace();
+            throw new IllegalStateException("Could not read loot category: " + category, ex);
         }
 
         lootCategory.loot = lootList.toArray(new ChestLootItem[lootList.size()]);

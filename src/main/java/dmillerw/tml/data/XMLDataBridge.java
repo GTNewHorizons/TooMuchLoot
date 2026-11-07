@@ -23,19 +23,22 @@ public class XMLDataBridge {
         tGrp.mLoading_mode = pCat.loading_mode.toString();
 
         for (ChestLootItem tIt : pCat.loot) {
-            LootEntry tEntry = new LootEntry();
-            tEntry.mCount_max = tIt.count_max;
-            tEntry.mCount_min = tIt.count_min;
-            tEntry.mDamage = tIt.damage;
-            tEntry.mIdentifier = tIt.item;
-            tEntry.mWeight = tIt.weight;
-
-            if (tIt.nbt != null) tEntry.mNBTTag = tIt.nbt.toString();
-
-            tGrp.getLoots().add(tEntry);
+            tGrp.getLoots().add(ChestLootItemToEntry(tIt));
         }
 
         return tGrp;
+    }
+
+    public static LootEntry ChestLootItemToEntry(ChestLootItem item) {
+        LootEntry tEntry = new LootEntry();
+        tEntry.mCount_max = item.count_max;
+        tEntry.mCount_min = item.count_min;
+        tEntry.mDamage = item.damage;
+        tEntry.mIdentifier = item.item;
+        tEntry.mWeight = item.weight;
+
+        if (item.nbt != null) tEntry.mNBTTag = item.nbt.toString();
+        return tEntry;
     }
 
     public static ChestLootCategory parseToChestLootCat(LootGroupXML pXMLObject) {
